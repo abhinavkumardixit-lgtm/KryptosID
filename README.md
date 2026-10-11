@@ -209,6 +209,9 @@ docker run -p 8000:8000 -p 8501:8501 kryptosid:latest
 2. **Compression Degradation:** Heavy re-encoding (H.264 CRF > 35 or JPEG Q < 50) dampens high-frequency Fourier residuals, potentially moving marginal predictions into `inconclusive`.
 3. **Novel Generative Backbones:** Generative architectures that incorporate post-hoc noise filtering may show lower attribution magnitude.
 4. **Human Review Requirement:** Determinations constitute forensic evidence for review by qualified human compliance officers and are not autonomous legal determinations for regulated onboarding.
+5. <img width="941" height="862" alt="Screenshot 2026-10-11 163822" src="https://github.com/user-attachments/assets/132599df-05aa-489d-a387-2502673528aa" />
+<img width="951" height="887" alt="Screenshot 2026-10-11 163835" src="https://github.com/user-attachments/assets/e06a61b3-04b7-4706-85b0-3370d7f0bc9a" />
+Updated the report generation
 
 ---
 
