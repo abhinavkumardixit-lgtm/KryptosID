@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Caches and logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Streamlit runtime cache
+.streamlit/secrets.toml
+
+# Local database and generated reports
+kryptosid_reports.db
+generated_reports/*
+!generated_reports/.gitkeep
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
