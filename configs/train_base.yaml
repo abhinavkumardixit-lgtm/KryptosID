@@ -1,0 +1,47 @@
+# KryptosID: Base Training Configuration
+# Grounded in Section 6.1 and 6.2 of DESIGN.md
+
+seed: 42
+deterministic: true
+
+model:
+  name: "KryptosIDNet"
+  token_dim: 256
+  d0: 25.0
+  filter_order: 2
+  dropout: 0.2
+  pretrained_spatial: true
+  pretrained_spectral: true
+
+training:
+  batch_size: 32
+  gradient_clip_norm: 1.0
+  amp: true
+  weight_decay: 0.05
+  early_stopping_patience: 5  # Monitored on validation EER
+
+  stage1_warmup:
+    epochs: 3
+    lr_head_and_fusion: 0.001
+    freeze_backbones: true
+
+  stage2_finetune:
+    epochs: 20
+    lr_backbone: 0.00001   # 1e-5
+    lr_head: 0.0001        # 1e-4
+    warmup_epochs: 2
+    cosine_scheduler: true
+    unfreeze_last_stages_only: true
+
+data:
+  manifest_path: "configs/manifests/train_manifest.json"
+  target_size: [224, 224]
+  jpeg_quality_norm: 85
+  random_jpeg_prob: 0.5
+  num_workers: 4
+
+checkpoints:
+  save_dir: "checkpoints"
+  save_best_only: true
+  monitor_metric: "val_eer"
+  mode: "min"

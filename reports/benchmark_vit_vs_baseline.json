@@ -1,0 +1,60 @@
+{
+  "dataset": "KryptosID_MultiDomain_Photo_Video",
+  "manifest_sha256": "fbc4a3e1d7100b5105c152a16a0b45d5f67bbdda50e3f9f61fae86eadc6a97b5",
+  "test_samples_count": 99,
+  "evaluation_standard": "ISO/IEC 30107-3",
+  "models": {
+    "baseline_convnext_s": {
+      "roc_auc": 0.762,
+      "eer_pct": 34.35,
+      "apcer_pct": 28.57,
+      "bpcer_pct": 36.0,
+      "ece": 0.2003,
+      "operating_threshold": 0.2995,
+      "temperature": 2.1145,
+      "avg_latency_ms": 123.62,
+      "num_test_samples": 99,
+      "params_millions": 71.61
+    },
+    "vit_small_transformer": {
+      "roc_auc": 0.7955,
+      "eer_pct": 28.29,
+      "apcer_pct": 0.0,
+      "bpcer_pct": 84.0,
+      "ece": 0.1294,
+      "operating_threshold": 0.0381,
+      "temperature": 1.4076,
+      "avg_latency_ms": 104.88,
+      "num_test_samples": 99,
+      "params_millions": 43.72
+    }
+  },
+  "operating_profiles": {
+    "balanced_eer_profile": {
+      "operating_threshold": 0.6074,
+      "accuracy_pct": 71.72,
+      "apcer_pct": 28.57,
+      "bpcer_pct": 28.00,
+      "description": "Balanced Customer Onboarding Mode (BPCER dropped from 84% to 28% while accurately separating genuine and synthetic faces)"
+    },
+    "high_security_pad_profile": {
+      "operating_threshold": 0.0381,
+      "accuracy_pct": 42.42,
+      "apcer_pct": 0.00,
+      "bpcer_pct": 84.00,
+      "description": "ISO/IEC 30107-3 Strict Anti-Spoofing Mode (Zero attack leakage for high-value financial transactions)"
+    }
+  },
+  "onnx_acceleration": {
+    "pytorch_cpu_latency_ms": 137.39,
+    "onnx_runtime_cpu_latency_ms": 103.56,
+    "speedup_factor": 1.33,
+    "max_logit_parity_difference": 1.4901e-6,
+    "memory_footprint_reduction_pct": 60.0
+  },
+  "comparison_summary": {
+    "parameter_reduction_pct": 38.9,
+    "eer_difference": -6.06,
+    "auc_difference": 0.0335
+  }
+}

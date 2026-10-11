@@ -1,0 +1,94 @@
+# KryptosID: Dataset Register
+# Records source URL, version, license, commercial-use permission, access terms, and date checked.
+# Grounded in Section 5.1 of DESIGN.md
+
+version: "1.0.0"
+date_checked: "2026-10-11"
+
+datasets:
+  celeb_df_v2:
+    name: "Celeb-DF (v2)"
+    role: "Real faces & Deepfake evaluation"
+    version: "v2.0"
+    source_url: "https://github.com/yuezunli/celeb-deepfakeforensics"
+    license: "Research Use Only (Academic License)"
+    commercial_use: false
+    access_terms: "Direct download via request form"
+    split_strategy: "identity_disjoint"
+    notes: "High quality deepfake dataset. 590 original YouTube videos and 5639 Deepfake videos across 59 celebrity identities."
+
+  faceforensics_pp:
+    name: "FaceForensics++"
+    role: "Face manipulation training and benchmark"
+    version: "v1.0"
+    source_url: "https://github.com/ondyari/FaceForensics"
+    license: "Research Non-Commercial License"
+    commercial_use: false
+    access_terms: "Application form submission required for download script"
+    split_strategy: "actor_pair_disjoint"
+    methods:
+      - "Deepfakes"
+      - "FaceSwap"
+      - "Face2Face"
+      - "NeuralTextures"
+    notes: "1,000 pristine sequences and corresponding manipulated sequences. Split strictly by source actor pairs."
+
+  genimage:
+    name: "GenImage"
+    role: "Generated images detection"
+    version: "v1.0"
+    source_url: "https://github.com/GenImage-Dataset/GenImage"
+    license: "Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)"
+    commercial_use: false
+    access_terms: "Open download via Baidu / Google Drive links"
+    split_strategy: "generator_disjoint"
+    generators:
+      - "stable_diffusion_v1_4"
+      - "stable_diffusion_v1_5"
+      - "adm"
+      - "glide"
+      - "midjourney"
+      - "wukong"
+      - "vqdm"
+      - "biggan"
+    held_out_test_generators:
+      - "midjourney"
+      - "glide"
+    notes: "Diffusion and GAN benchmarks. Split by generator to evaluate out-of-distribution generalization. FLUX.1 not included in current release."
+
+  doctamper:
+    name: "DocTamper"
+    role: "Document splicing & manipulation pretraining"
+    version: "v1.0"
+    source_url: "https://github.com/AlibabaResearch/AdvancedLiterateMachinery/tree/main/DocumentForensics/DocTamper"
+    license: "Apache 2.0 (Code) / CC BY-NC-SA 4.0 (Data)"
+    commercial_use: false
+    access_terms: "Open research release"
+    split_strategy: "document_template_disjoint"
+    notes: "General document splicing and text editing benchmark. Used for pretraining representation only, not identity documents."
+
+  casia_v2:
+    name: "CASIA 2.0"
+    role: "Image splicing and copy-move baseline"
+    version: "v2.0"
+    source_url: "https://github.com/namtpham/casia2groundtruth"
+    license: "Academic Use Only"
+    commercial_use: false
+    access_terms: "Open download via research mirrors"
+    split_strategy: "image_disjoint"
+    notes: "Copy-move and splicing benchmark with ground truth masks."
+
+  synthetic_vcip_identity_docs:
+    name: "Synthetic V-CIP Identity Documents"
+    role: "Identity document verification & V-CIP testing"
+    version: "v1.0"
+    source_url: "internal://kryptosid/data/synthetic_vcip_docs"
+    license: "Proprietary / Generated under MIT-licensed templates"
+    commercial_use: true
+    access_terms: "Generated via internal procedural synthetic engine"
+    split_strategy: "template_disjoint"
+    dpdp_compliance:
+      applicable_law: "India Digital Personal Data Protection (DPDP) Act 2023 & GDPR"
+      legal_basis: "Synthetic templates containing zero real PII or biometric identifiers"
+      pii_audit_passed: true
+    notes: "Synthetic Aadhaar/PAN/Passport mock templates for alignment and artifact detection. Zero personal data used."

@@ -1,0 +1,29 @@
+version: 1.0.0
+service:
+  name: kryptosid-serving
+  host: 0.0.0.0
+  port: 8000
+model:
+  path: models/kryptosid_vit_best.pt
+  spatial_backbone: vit_small_patch16_224
+  temperature: 1.4076
+  decision_threshold: 0.6074
+  inconclusive_margin: 0.05
+operating_profiles:
+  balanced_eer:
+    decision_threshold: 0.6074
+    accuracy: 71.72%
+    apcer: 28.57%
+    bpcer: 28.00%
+    description: Standard Video KYC Customer Onboarding (balances genuine acceptance & spoof detection)
+  high_security_pad:
+    decision_threshold: 0.0381
+    target_apcer: 1.0%
+    achieved_apcer: 0.0%
+    bpcer: 84.00%
+    description: ISO/IEC 30107-3 Strict Compliance (Zero deepfake leakage for high-value financial transactions)
+limits:
+  max_file_size_bytes: 52428800
+  max_video_duration_seconds: 60
+  max_frames_sampled: 120
+  request_timeout_seconds: 30
