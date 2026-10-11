@@ -21,9 +21,11 @@ class AnalyzeResponse(BaseModel):
     report_id: str = Field(..., description="Unique report identifier")
     report_sha256: str = Field(..., description="SHA-256 hash of canonical evidence chain")
     input_sha256: str = Field(..., description="SHA-256 of raw uploaded media bytes")
-    media_type: str = Field(..., description="image, video, or document")
+    media_type: str = Field(..., description="image, video, document, or audio")
     quality_indicators: Optional[Dict[str, Any]] = Field(default=None, description="Image blur, quality, and adaptive threshold markers")
     explanations: Dict[str, ExplanationArtifact] = Field(default_factory=dict)
+    audio_forensics: Optional[Dict[str, Any]] = Field(default=None, description="Acoustic deepfake & synthetic speech detection metrics")
+    lip_sync: Optional[Dict[str, Any]] = Field(default=None, description="Audio-visual lip-sync temporal consistency metrics")
     download_pdf_url: str = Field(..., description="URL to download signed forensic PDF")
 
 

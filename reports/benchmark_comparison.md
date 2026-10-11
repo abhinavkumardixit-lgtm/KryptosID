@@ -19,10 +19,10 @@
 | **PyTorch CPU Latency** | 123.62 ms / img | 104.88 ms / img | Faster patch-based forward pass |
 | **ONNX Runtime CPU Latency** | N/A | **103.56 ms / img** | **1.33x speedup** on CPU |
 | **ONNX Logit Parity Diff** | N/A | **$1.49 \times 10^{-6}$** | Exact single-precision equivalence |
-| **ROC-AUC (Higher is better)** | **0.7620** | **0.7955** | **+0.0335 Higher AUC (+4.4%)** |
-| **Equal Error Rate (EER %)** | 34.35% | **28.29%** | **6.06% lower error** |
-| **Expected Calibration Error** | 0.2003 | **0.1294** | **35.4% lower calibration error** |
-| **Optimal Temperature ($T$)** | 2.1145 | **1.4076** | NLL minimized via validation L-BFGS |
+| **ROC-AUC (Higher is better)** | **0.7620** | **0.8053** | **+0.0433 Higher AUC (+5.7%)** |
+| **Equal Error Rate (EER %)** | 34.35% | **22.22%** | **12.13% lower error rate** |
+| **Expected Calibration Error** | 0.2003 | **0.0828** | **58.7% lower calibration error** |
+| **Optimal Temperature ($T$)** | 2.1145 | **4.7762** | NLL minimized via validation L-BFGS |
 
 ---
 

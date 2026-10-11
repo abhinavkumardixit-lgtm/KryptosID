@@ -121,13 +121,18 @@ async def analyze_media(
 
     # Auto-detect media type if unspecified
     content_type = file.content_type or ""
-    if "video" in content_type or file.filename.lower().endswith((".mp4", ".webm", ".mov", ".avi")):
+    fn_lower = (file.filename or "").lower()
+    if "audio" in content_type or fn_lower.endswith((".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".wma")):
+        media_type = "audio"
+    elif "video" in content_type or fn_lower.endswith((".mp4", ".webm", ".mov", ".avi", ".mkv")):
         media_type = "video"
-    elif file.filename.lower().endswith((".pdf", ".tiff")):
+    elif fn_lower.endswith((".pdf", ".tiff")):
         media_type = "document"
 
     try:
-        if media_type == "video":
+        if media_type == "audio":
+            result = eng.analyze_audio(raw_bytes)
+        elif media_type == "video":
             result = eng.analyze_video(raw_bytes)
         elif media_type == "document":
             result = eng.analyze_document(raw_bytes)
@@ -146,7 +151,9 @@ async def analyze_media(
         input_sha256=result["input_sha256"],
         media_type=media_type,
         quality_indicators=result.get("quality_indicators"),
-        explanations=result["explanations"],
+        explanations=result.get("explanations", {}),
+        audio_forensics=result.get("audio_forensics"),
+        lip_sync=result.get("lip_sync"),
         download_pdf_url=result["download_pdf_url"],
     )
 

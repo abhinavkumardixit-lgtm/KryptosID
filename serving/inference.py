@@ -20,6 +20,9 @@ from PIL import Image
 import torch
 import yaml
 
+from audio.extract import extract_audio_from_bytes, is_supported_audio_media
+from audio.detector import AudioForensicDetector, get_audio_detector
+from audio.av_sync import verify_audiovisual_sync
 from core.explain import generate_all_explanations
 from core.frequency import rgb_to_grayscale
 from core.model import KryptosIDNet
@@ -112,6 +115,7 @@ class ForensicInferenceEngine:
         self.pipeline = ForensicAugmentationPipeline(is_training=False)
         self.store = ForensicReportStore(db_path=db_path)
         self.signer = signer or generate_keypair(key_id="kryptosid-ed25519-prod-v1")
+        self.audio_detector = get_audio_detector()
 
     def analyze(
         self,
@@ -119,15 +123,19 @@ class ForensicInferenceEngine:
         media_type: str = "image",
         filename: str = "",
     ) -> Dict[str, Any]:
-        """Unified analysis entrypoint routing to image, document, or video pipeline."""
+        """Unified analysis entrypoint routing to image, document, video, or audio pipeline."""
         if filename:
             fn_lower = filename.lower()
-            if fn_lower.endswith((".mp4", ".avi", ".mov", ".webm")):
+            if fn_lower.endswith((".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".wma")):
+                media_type = "audio"
+            elif fn_lower.endswith((".mp4", ".avi", ".mov", ".webm", ".mkv")):
                 media_type = "video"
             elif fn_lower.endswith((".pdf", ".tiff")):
                 media_type = "document"
 
-        if media_type == "video":
+        if media_type == "audio":
+            return self.analyze_audio(file_bytes)
+        elif media_type == "video":
             return self.analyze_video(file_bytes)
         elif media_type == "document":
             return self.analyze_document(file_bytes)
@@ -163,11 +171,21 @@ class ForensicInferenceEngine:
                 "spectral_input": spectral_t.cpu().numpy(),
             }
             logits_np = self.ort_session.run(["logits"], ort_inputs)[0]
-            score = float(torch.sigmoid(torch.from_numpy(logits_np) / self.temperature).item())
+            # Test-Time Augmentation: horizontal flip averaging
+            sp_flip = np.flip(ort_inputs["spatial_input"], axis=-1).copy()
+            pe_flip = np.flip(ort_inputs["spectral_input"], axis=-1).copy()
+            logits_flip = self.ort_session.run(["logits"], {"spatial_input": sp_flip, "spectral_input": pe_flip})[0]
+            logits_ens = 0.5 * (logits_np + logits_flip)
+            score = float(torch.sigmoid(torch.from_numpy(logits_ens) / self.temperature).item())
         else:
             with torch.no_grad():
-                logits = self.model((spatial_t, spectral_t))
-                score = float(self.model.predict_probability(logits, temperature=self.temperature).item())
+                logits_orig = self.model((spatial_t, spectral_t))
+                # Test-Time Augmentation: horizontal flip averaging
+                sp_flip = torch.flip(spatial_t, dims=[-1])
+                pe_flip = torch.flip(spectral_t, dims=[-1])
+                logits_flip = self.model((sp_flip, pe_flip))
+                logits_ens = 0.5 * logits_orig + 0.5 * logits_flip
+                score = float(self.model.predict_probability(logits_ens, temperature=self.temperature).item())
 
         # 4. Quality indicators & Adaptive thresholding
         gray = cv2.cvtColor(raw_rgb, cv2.COLOR_RGB2GRAY)
@@ -279,8 +297,65 @@ class ForensicInferenceEngine:
         res["input_sha256"] = input_sha256  # Overwrite with original doc bytes hash
         return res
 
+    def analyze_audio(self, audio_bytes: bytes) -> Dict[str, Any]:
+        """Analyze standalone speech audio for synthetic voice / neural vocoder deepfakes."""
+        started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        report_id = f"rep_{uuid.uuid4().hex[:12]}"
+        report_subfolder = os.path.join(self.reports_dir, report_id)
+        os.makedirs(report_subfolder, exist_ok=True)
+
+        input_sha256 = hash_raw_bytes(audio_bytes)
+
+        # Run acoustic forensic analysis
+        audio_res = self.audio_detector.analyze_bytes(audio_bytes)
+        decision = audio_res["decision"]
+        score = audio_res["score"]
+        rule_fired = audio_res["verdict_text"]
+        if audio_res.get("anomalies_detected"):
+            rule_fired += f" ({'; '.join(audio_res['anomalies_detected'][:2])})"
+
+        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+        # Build evidence chain and Ed25519 signature
+        evidence = build_evidence_chain(
+            input_bytes=audio_bytes,
+            decision=decision,
+            score=score,
+            rule_fired=rule_fired,
+            threshold=self.audio_detector.decision_threshold,
+            temperature=self.temperature,
+            started_at=started_at,
+            finished_at=finished_at,
+            explanation_hashes={},
+        )
+        signed_record = sign_payload(self.signer, evidence)
+
+        # Generate A4 Forensic PDF
+        pdf_path = os.path.join(report_subfolder, f"{report_id}_forensic_report.pdf")
+        generate_forensic_report_pdf(
+            signed_evidence=signed_record,
+            output_pdf_path=pdf_path,
+            explanation_images={},
+        )
+        self.store.save_report(report_id, signed_record, pdf_path=pdf_path)
+
+        return {
+            "decision": decision,
+            "score": score,
+            "threshold": self.audio_detector.decision_threshold,
+            "rule_fired": rule_fired,
+            "report_id": report_id,
+            "report_sha256": evidence["report_sha256"],
+            "input_sha256": input_sha256,
+            "media_type": "audio",
+            "audio_forensics": audio_res,
+            "explanations": {},
+            "pdf_path": pdf_path,
+            "download_pdf_url": f"/v1/reports/{report_id}/pdf",
+        }
+
     def analyze_video(self, video_bytes: bytes) -> Dict[str, Any]:
-        """Analyze video sequence with frame sampling, liveness, and temporal aggregation (Section 8)."""
+        """Analyze video sequence with visual frames, liveness, audio track, and lip-sync."""
         started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         report_id = f"rep_{uuid.uuid4().hex[:12]}"
         report_subfolder = os.path.join(self.reports_dir, report_id)
@@ -313,7 +388,7 @@ class ForensicInferenceEngine:
         # 4. Temporal score aggregation (Section 8.3)
         agg_score, top_k_mean, jump_pen = aggregate_video_frame_scores(frame_scores)
 
-        # 5. Final decision
+        # 5. Visual decision
         decision, rule_fired = decide_video_verdict(
             aggregated_score=agg_score,
             threshold=self.threshold,
@@ -322,7 +397,25 @@ class ForensicInferenceEngine:
             inconclusive_margin=self.inconclusive_margin,
         )
 
-        # 6. Explanations on highest artifact frame
+        # 6. Demux audio track and verify synthetic vocoder & AV Lip-Sync
+        waveform, audio_sr = extract_audio_from_bytes(video_bytes)
+        audio_forensics = None
+        lip_sync_info = None
+
+        if waveform is not None and len(waveform) > int(audio_sr * 0.5):
+            audio_forensics = self.audio_detector.analyze_waveform(waveform, sample_rate=audio_sr)
+            lip_sync_info = verify_audiovisual_sync(face_crops, waveform, video_fps=4.0, sample_rate=audio_sr)
+
+            # Multimodal fusion logic:
+            if not lip_sync_info.get("is_synchronized", True) and lip_sync_info.get("sync_decision") == "manipulated":
+                if decision == "genuine":
+                    decision = "manipulated"
+                    rule_fired = f"lip_sync_desynchronization ({lip_sync_info['rule_fired']})"
+            elif audio_forensics.get("decision") == "manipulated" and decision == "genuine":
+                decision = "manipulated"
+                rule_fired = f"synthetic_speech_vocoder ({audio_forensics['verdict_text']})"
+
+        # 7. Explanations on highest artifact frame
         max_idx = int(np.argmax(frame_scores))
         sp_t, _ = self.pipeline(face_crops[max_idx])
         sp_t = sp_t.unsqueeze(0).to(self.device)
@@ -335,7 +428,7 @@ class ForensicInferenceEngine:
 
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-        # 7. Evidence chain & Ed25519 signature
+        # 8. Evidence chain & Ed25519 signature
         explanation_hashes = {k: v["sha256"] for k, v in explanations.items()}
         evidence = build_evidence_chain(
             input_bytes=video_bytes,
@@ -351,7 +444,7 @@ class ForensicInferenceEngine:
 
         signed_record = sign_payload(self.signer, evidence)
 
-        # 8. PDF & store
+        # 9. PDF & store
         pdf_path = os.path.join(report_subfolder, f"{report_id}_forensic_report.pdf")
         exp_image_paths = {k: v["file_path"] for k, v in explanations.items()}
         generate_forensic_report_pdf(
@@ -370,6 +463,8 @@ class ForensicInferenceEngine:
             "report_sha256": evidence["report_sha256"],
             "input_sha256": input_sha256,
             "media_type": "video",
+            "audio_forensics": audio_forensics,
+            "lip_sync": lip_sync_info,
             "explanations": explanations,
             "pdf_path": pdf_path,
             "download_pdf_url": f"/v1/reports/{report_id}/pdf",

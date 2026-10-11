@@ -298,6 +298,90 @@ def render_verification_badge(verified: bool, report_id: str, details: Dict[str,
     st.markdown(badge, unsafe_allow_html=True)
 
 
+def render_audio_forensics_card(audio_data: Dict[str, Any]) -> None:
+    """Renders acoustic deepfake & neural vocoder forensic findings."""
+    if not audio_data:
+        return
+
+    features = audio_data.get("acoustic_features", {})
+    sub_scores = audio_data.get("sub_scores", {})
+    anomalies = audio_data.get("anomalies_detected", [])
+    decision = audio_data.get("decision", "inconclusive").upper()
+    verdict_text = audio_data.get("verdict_text", "Acoustic Analysis")
+    score = audio_data.get("score", 0.0)
+
+    badge_color = "#EF4444" if decision == "MANIPULATED" else ("#10B981" if decision == "GENUINE" else "#F59E0B")
+
+    st.markdown(
+        f"""
+        <div class="forensic-card" style="border-left: 5px solid {badge_color}; margin-top: 1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.75rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-size:1.4rem;">🎙️</span>
+                    <strong style="font-size:1.05rem; color:#F8FAFC;">Voice Deepfake & Neural Vocoder Inspection</strong>
+                </div>
+                <span class="status-chip" style="background:{badge_color}22; color:{badge_color}; border:1px solid {badge_color}55; font-size:0.8rem; font-weight:700;">
+                    {decision}: {verdict_text}
+                </span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; font-family:'JetBrains Mono', monospace; font-size:0.78rem; background:rgba(0,0,0,0.25); padding:0.75rem; border-radius:6px; margin-bottom:0.75rem;">
+                <div><span style="color:var(--kid-text-muted);">Vocoder Prob:</span> <strong style="color:{badge_color};">{score:.3f}</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Pitch F0:</span> <strong>{features.get('mean_f0_hz', 'N/A')} Hz</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Jitter RAP:</span> <strong>{features.get('pitch_jitter_pct', 'N/A')}%</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Shimmer:</span> <strong>{features.get('pitch_shimmer_pct', 'N/A')}%</strong></div>
+                <div><span style="color:var(--kid-text-muted);">HF Energy Ratio:</span> <strong>{features.get('hf_energy_ratio', 'N/A')}</strong></div>
+                <div><span style="color:var(--kid-text-muted);">95% Roll-Off:</span> <strong>{features.get('spectral_rolloff_95_hz', 'N/A')} Hz</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Wiener Flatness:</span> <strong>{features.get('spectral_flatness', 'N/A')}</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Duration:</span> <strong>{features.get('duration_sec', 'N/A')}s</strong></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    if anomalies:
+        st.markdown("##### ⚠️ Acoustic Forensic Anomalies Detected:")
+        for a in anomalies:
+            st.markdown(f"- 🔸 `{a}`")
+
+
+def render_lipsync_card(lipsync_data: Dict[str, Any]) -> None:
+    """Renders temporal audio-visual lip synchronization consistency findings."""
+    if not lipsync_data:
+        return
+
+    is_sync = lipsync_data.get("is_synchronized", True)
+    corr = lipsync_data.get("max_cross_corr", 0.0)
+    lag = lipsync_data.get("optimal_lag_ms", 0.0)
+    decision = lipsync_data.get("sync_decision", "inconclusive").upper()
+    rule = lipsync_data.get("rule_fired", "")
+
+    badge_color = "#10B981" if is_sync else "#EF4444"
+    status_text = "SYNCHRONIZED (Bona Fide Speech)" if is_sync else "DESYNCHRONIZED (Lip-Sync Tampering)"
+
+    st.markdown(
+        f"""
+        <div class="forensic-card" style="border-left: 5px solid {badge_color}; margin-top: 1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.75rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-size:1.4rem;">👄</span>
+                    <strong style="font-size:1.05rem; color:#F8FAFC;">Audio-Visual Lip-Sync Cross-Correlation</strong>
+                </div>
+                <span class="status-chip" style="background:{badge_color}22; color:{badge_color}; border:1px solid {badge_color}55; font-size:0.8rem; font-weight:700;">
+                    {status_text}
+                </span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem; font-family:'JetBrains Mono', monospace; font-size:0.78rem; background:rgba(0,0,0,0.25); padding:0.75rem; border-radius:6px;">
+                <div><span style="color:var(--kid-text-muted);">Peak Cross-Corr:</span> <strong style="color:{badge_color};">{corr:.3f}</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Temporal Lag:</span> <strong>{lag:.1f} ms</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Desync Prob:</span> <strong>{lipsync_data.get('desync_probability', 0):.3f}</strong></div>
+                <div><span style="color:var(--kid-text-muted);">Evidence Rule:</span> <span style="font-size:0.72rem;">{rule}</span></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 def render_footer(model_version: str = "v1.0.0", last_updated: str = "2026-10-11") -> None:
     """Renders the standardized footer with Section 13 audit notices."""
     st.markdown(

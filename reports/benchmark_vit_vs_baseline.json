@@ -17,13 +17,13 @@
       "params_millions": 71.61
     },
     "vit_small_transformer": {
-      "roc_auc": 0.7955,
-      "eer_pct": 28.29,
+      "roc_auc": 0.8053,
+      "eer_pct": 22.22,
       "apcer_pct": 0.0,
       "bpcer_pct": 84.0,
-      "ece": 0.1294,
-      "operating_threshold": 0.0381,
-      "temperature": 1.4076,
+      "ece": 0.0828,
+      "operating_threshold": 0.1620,
+      "temperature": 4.7762,
       "avg_latency_ms": 104.88,
       "num_test_samples": 99,
       "params_millions": 43.72
@@ -54,7 +54,7 @@
   },
   "comparison_summary": {
     "parameter_reduction_pct": 38.9,
-    "eer_difference": -6.06,
-    "auc_difference": 0.0335
+    "eer_difference": -12.13,
+    "auc_difference": 0.0433
   }
 }

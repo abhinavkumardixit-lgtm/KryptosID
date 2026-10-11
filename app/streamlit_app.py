@@ -25,6 +25,8 @@ from app.components import (
     render_sidebar_status,
     render_cookie_banner,
     render_verdict_card,
+    render_audio_forensics_card,
+    render_lipsync_card,
     render_hash_box,
     render_explanation_viewer,
     render_verification_badge,
@@ -161,9 +163,9 @@ if page == "🔬 Analyze Media":
 
     # 1-Click Instant Demo Presets
     st.markdown("##### ⚡ Quick 1-Click Verification Presets")
-    preset_cols = st.columns(3)
+    preset_cols = st.columns(4)
     with preset_cols[0]:
-        if st.button("👤 Genuine Customer Face", use_container_width=True, help="Load held-out bona fide customer portrait"):
+        if st.button("👤 Genuine Face", use_container_width=True, help="Load held-out bona fide customer portrait"):
             p = "data/photos/real/photo_real_0000.jpg"
             if os.path.exists(p):
                 with open(p, "rb") as f:
@@ -172,7 +174,7 @@ if page == "🔬 Analyze Media":
                     st.session_state["loaded_media_type"] = "image"
                     st.rerun()
     with preset_cols[1]:
-        if st.button("🤖 AI Synthetic Portrait", use_container_width=True, help="Load generative synthetic face portrait"):
+        if st.button("🤖 Synthetic Face", use_container_width=True, help="Load generative synthetic face portrait"):
             p = "data/photos/fake/photo_fake_0000.jpg"
             if os.path.exists(p):
                 with open(p, "rb") as f:
@@ -181,13 +183,22 @@ if page == "🔬 Analyze Media":
                     st.session_state["loaded_media_type"] = "image"
                     st.rerun()
     with preset_cols[2]:
-        if st.button("🎥 FaceForensics Video Frame", use_container_width=True, help="Load real-world compressed video manipulation frame"):
-            p = "data/faceforensics/fake/ff_fake_000_003_000.jpg"
+        if st.button("🎙️ Human Voice", use_container_width=True, help="Load bona fide natural human vocal tract recording"):
+            p = "data/audio/real/voice_real_sample.wav"
             if os.path.exists(p):
                 with open(p, "rb") as f:
                     st.session_state["loaded_file_bytes"] = f.read()
-                    st.session_state["loaded_file_name"] = "ff_fake_000_003_000.jpg"
-                    st.session_state["loaded_media_type"] = "image"
+                    st.session_state["loaded_file_name"] = "voice_real_sample.wav"
+                    st.session_state["loaded_media_type"] = "audio"
+                    st.rerun()
+    with preset_cols[3]:
+        if st.button("🗣️ Cloned Vocoder", use_container_width=True, help="Load synthetic voice clone with neural vocoder artifacts"):
+            p = "data/audio/fake/voice_fake_sample.wav"
+            if os.path.exists(p):
+                with open(p, "rb") as f:
+                    st.session_state["loaded_file_bytes"] = f.read()
+                    st.session_state["loaded_file_name"] = "voice_fake_sample.wav"
+                    st.session_state["loaded_media_type"] = "audio"
                     st.rerun()
 
     st.markdown("---")
@@ -195,20 +206,25 @@ if page == "🔬 Analyze Media":
     col_input, col_info = st.columns([2, 1])
 
     with col_input:
+        cur_type = st.session_state.get("loaded_media_type", "image")
+        type_options = ["image", "video", "audio", "document"]
+        type_idx = type_options.index(cur_type) if cur_type in type_options else 0
+
         media_choice = st.selectbox(
             "Select Input Modality:",
-            ["image", "video", "document"],
-            index=0 if st.session_state.get("loaded_media_type", "image") == "image" else 1,
+            type_options,
+            index=type_idx,
             format_func=lambda x: {
                 "image": "🖼️ Facial Portrait (Image)",
                 "video": "🎥 V-CIP Video Stream",
+                "audio": "🎙️ Voice / Speech Audio Track",
                 "document": "📄 Identity Document (Aadhaar / Passport / ID)"
             }[x]
         )
 
         uploaded_file = st.file_uploader(
             f"Upload {media_choice.capitalize()} for Forensic Analysis",
-            type=["jpg", "jpeg", "png", "webp", "mp4", "avi", "mov", "pdf"]
+            type=["jpg", "jpeg", "png", "webp", "mp4", "avi", "mov", "webm", "wav", "mp3", "ogg", "flac", "m4a", "pdf"]
         )
 
         # Determine active payload from uploader or loaded demo preset
@@ -224,7 +240,11 @@ if page == "🔬 Analyze Media":
             st.info(f"Loaded Preset: `{active_name}` ({len(active_bytes)/1024:.1f} KB)")
 
         if active_bytes is not None:
-            if media_choice == "image" or active_name.endswith((".jpg", ".png", ".webp")):
+            if media_choice == "audio" or active_name.lower().endswith((".wav", ".mp3", ".ogg", ".flac", ".m4a")):
+                st.audio(active_bytes)
+            elif media_choice == "video" or active_name.lower().endswith((".mp4", ".mov", ".avi", ".webm")):
+                st.video(active_bytes)
+            else:
                 st.image(active_bytes, caption=f"Active Input: {active_name}", use_container_width=True)
 
             btn_row1, btn_row2 = st.columns([3, 1])
@@ -234,10 +254,11 @@ if page == "🔬 Analyze Media":
                 if st.button("Clear Input", use_container_width=True):
                     st.session_state.pop("loaded_file_bytes", None)
                     st.session_state.pop("loaded_file_name", None)
+                    st.session_state.pop("loaded_media_type", None)
                     st.rerun()
 
             if analyze_btn:
-                with st.spinner("Executing dual-stream spatial-spectral analysis and computing Grad-CAM / FFT explanations..."):
+                with st.spinner("Executing forensic multimodal analysis and computing explanations..."):
                     t0 = time.time()
                     result = call_api_analyze(
                         file_bytes=active_bytes,
@@ -261,6 +282,14 @@ if page == "🔬 Analyze Media":
                         rule_fired=result["rule_fired"],
                         liveness_passed=result.get("liveness_passed")
                     )
+
+                    # Show Audio Forensic Card if audio analyzed
+                    if result.get("audio_forensics"):
+                        render_audio_forensics_card(result["audio_forensics"])
+
+                    # Show Lip-Sync Card if video AV sync analyzed
+                    if result.get("lip_sync"):
+                        render_lipsync_card(result["lip_sync"])
 
                     # Quick Report Download
                     pdf_bytes = call_api_get_pdf(result["report_id"])
@@ -327,6 +356,13 @@ elif page == "📊 Inspection Results":
                 """,
                 unsafe_allow_html=True
             )
+
+        # Voice Forensics & Lip-Sync (if present)
+        if result.get("audio_forensics"):
+            render_audio_forensics_card(result["audio_forensics"])
+
+        if result.get("lip_sync"):
+            render_lipsync_card(result["lip_sync"])
 
         st.markdown("### 📋 Cryptographic Evidence Chain")
         c1, c2 = st.columns(2)
@@ -423,9 +459,9 @@ elif page == "📈 Benchmark & ViT Comparison":
             {"Forensic Metric": "ONNX Runtime CPU Latency", "ConvNeXt-S Baseline": "N/A", "Vision Transformer (ViT)": "103.56 ms / sample", "Advantage / Winner": "1.33x speedup on CPU (ViT)"},
             {"Forensic Metric": "Working Memory (RAM)", "ConvNeXt-S Baseline": "~1.40 GB", "Vision Transformer (ViT)": "~550 MB (ONNX)", "Advantage / Winner": "60% less RAM required (ViT)"},
             {"Forensic Metric": "Single-Core Throughput", "ConvNeXt-S Baseline": "~8.1 img/sec", "Vision Transformer (ViT)": "~10.2 img/sec", "Advantage / Winner": "+26% stream density (ViT)"},
-            {"Forensic Metric": "ROC-AUC (Discrimination)", "ConvNeXt-S Baseline": f"{b['roc_auc']:.4f}", "Vision Transformer (ViT)": f"{v['roc_auc']:.4f}", "Advantage / Winner": "+0.0335 higher AUC (ViT)"},
-            {"Forensic Metric": "Equal Error Rate (EER)", "ConvNeXt-S Baseline": f"{b['eer_pct']}%", "Vision Transformer (ViT)": f"{v['eer_pct']}%", "Advantage / Winner": "-6.06% lower error (ViT)"},
-            {"Forensic Metric": "Expected Calibration Error", "ConvNeXt-S Baseline": f"{b['ece']:.4f}", "Vision Transformer (ViT)": f"{v['ece']:.4f}", "Advantage / Winner": "35.4% sharper calibration (ViT)"},
+            {"Forensic Metric": "ROC-AUC (Discrimination)", "ConvNeXt-S Baseline": f"{b['roc_auc']:.4f}", "Vision Transformer (ViT)": f"{v['roc_auc']:.4f}", "Advantage / Winner": f"+{v['roc_auc'] - b['roc_auc']:.4f} higher AUC (ViT)"},
+            {"Forensic Metric": "Equal Error Rate (EER)", "ConvNeXt-S Baseline": f"{b['eer_pct']}%", "Vision Transformer (ViT)": f"{v['eer_pct']}%", "Advantage / Winner": f"{v['eer_pct'] - b['eer_pct']:.2f}% lower error (ViT)"},
+            {"Forensic Metric": "Expected Calibration Error", "ConvNeXt-S Baseline": f"{b['ece']:.4f}", "Vision Transformer (ViT)": f"{v['ece']:.4f}", "Advantage / Winner": "58.7% sharper calibration (ViT)"},
             {"Forensic Metric": "Customer False Reject (BPCER)", "ConvNeXt-S Baseline": "36.00%", "Vision Transformer (ViT)": "28.00% (Balanced Mode)", "Advantage / Winner": "-8.00% fewer false rejections (ViT)"},
             {"Forensic Metric": "Presentation Attack Leakage", "ConvNeXt-S Baseline": "28.57%", "Vision Transformer (ViT)": "0.00% (PAD Mode τ=0.0381)", "Advantage / Winner": "Zero attack slip-through (ViT)"},
         ]

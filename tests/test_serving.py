@@ -137,3 +137,23 @@ def test_fastapi_endpoints():
         files={"file": ("bomb.bin", oversized_bytes, "application/octet-stream")},
     )
     assert res_oversized.status_code == 413
+
+    # 8. Analyze Audio file
+    from audio.extract import generate_synthetic_test_audio
+    import soundfile as sf
+    test_audio, sr = generate_synthetic_test_audio(duration_sec=2.0, sample_rate=16000, is_fake=False)
+    audio_buf = io.BytesIO()
+    sf.write(audio_buf, test_audio, sr, format="WAV")
+    audio_bytes = audio_buf.getvalue()
+
+    res_audio = client.post(
+        "/v1/analyze",
+        files={"file": ("interview.wav", audio_bytes, "audio/wav")},
+        data={"media_type": "audio"},
+    )
+    assert res_audio.status_code == 200
+    audio_data = res_audio.json()
+    assert audio_data["media_type"] == "audio"
+    assert "audio_forensics" in audio_data
+    assert audio_data["decision"] in ["genuine", "manipulated", "inconclusive"]
+    assert "pitch_jitter_pct" in audio_data["audio_forensics"]["acoustic_features"]
